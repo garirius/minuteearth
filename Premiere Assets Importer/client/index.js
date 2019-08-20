@@ -4,12 +4,24 @@
 
 (function (){
   'use strict';
-  /* 1) Create an instance of CSInterface. */
   var csInterface = new CSInterface();
 
-  /* 2) Make a reference to your HTML button and add a click handler. */
+  // references to our html buttons and the functions they'll execute
   var analButton = document.querySelector("#analyze");
   analButton.addEventListener("click", analDrawings);
+  var updateButton = document.querySelector("#update");
+  updateButton.addEventListener("click", updateDrawings);
+
+  //code to update style
+  var checkboxes = document.querySelectorAll('input[type=checkbox]');
+  checkboxes.forEach(function(currVal){
+    currVal.addEventListener("click",function(e){
+      var boxo = e.target;
+      alert(boxo.checked);
+      boxo.parentNode.parentNode.classList.toggle("checko",boxo.checked);
+    });
+  });
+
 
   /**
    * Analyzes the Drawings folder and updates the #files div
@@ -29,8 +41,10 @@
         for(var n=0; n<res.length; n++){
           var elems = res[n].split("?");
           var indiv = document.createElement("tr");
+          var want = (elems[2] == 'true')? "checked":'';
           indiv.className = "elem";
-          indiv.innerHTML = '<td><input type="checkbox" checked> </td> <td><p>' + elems[0]+ '</p></td><td><p><i>'+ elems[1] + "</i></p></td>";
+
+          indiv.innerHTML = '<td><input type="checkbox" '+ want +'> </td> <td><p>' + elems[0] + '</p></td><td><p><i>'+ elems[1] + "</i></p></td>";
           filesInfo.appendChild(indiv);
         }
 
@@ -40,4 +54,11 @@
 
     });
   }
+
+  /**
+   * Imports all the selected drawings, assets and drawing processes
+   */
+   function updateDrawings() {
+     csInterface.evalScript("test();");
+   }
 }());
