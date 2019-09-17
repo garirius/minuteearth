@@ -2,27 +2,96 @@
 // By Arcadi Garcia
 // Has to be with the rest of the files in a valid CEP Adobe Extension folder
 
-function test(){
-  var aux = app.project.rootItem.children;
-  var a = aux[1], m=2;
-  while(a.type != ProjectItemType.BIN){
-    a = aux[m];
-    m++;
-  }
-  aux = a;
-  res = "";
-  for(var n = 0; n<aux.children.numItems; n++){
-    res = res + aux.children[n].name + ' has {\n';
-    var obj = aux.children[n].videoComponents;
-    for (var key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        res += "\t" + key + ": " + obj[key] + "\n";
+/**
+ * Gets a bin of a particular type by name. If there is more than one file
+ * matching the name and type, it returns an array. If it finds none, returns null.
+ * @param {String} name - The name of the element to find
+ * @return {ProjectItem| Null} A ProjectItem Bin with the name in question.
+ *                             If none has been found, it returns a null.
+ */
+ function getSceneByName(name){
+   //let's inspect where's children
+   var babies = app.project.rootItem.children;
+   for(var n=0; n<babies.numItems; n++){
+     //if we find a bin with the same name, return it and call it a day
+     if(babies[n].type == ProjectItemType.BIN && babies[n].name == name) return babies[n];
+   }
+   return null; //if we didn't find anything, return a null
+ }
+
+/**
+ * Analyzes the Drawings folder corresponding to a
+ * particular project folder and returns all the names
+ * of the files inside.
+ * @param {String} whatToImport - string containing the name and kind of everything we're gonna import.
+ */
+function updateDrawings(whatToImport){
+  var rootItem = app.project.rootItem, projFolders = rootItem.children;
+  var projRef = new File(app.project.path), drawFolder = projRef.parent; //get Sources folder
+  var theresDraw = drawFolder.changePath("Drawings");
+
+
+
+  if(theresDraw && drawFolder.exists){ //if we find the drawings folder
+    whatToImport = whatToImport.split(","); //start to parse this string back into something usable
+    rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
+    var auxBin = getSceneByName("AUX");
+
+    for(var n=0; n<whatToImport.length; n++){
+      var info = whatToImport[n].split("?"); //get an element and parse its info
+      var name = info[0], kind = info[1]; //...and store it in variables
+
+      /**************************************************/
+      /* FIRST LET'S FIGURE OUT WHERE THE ASSET WILL GO */
+      /**************************************************/
+      var fol = parseInt(name); //get scene number
+      if(fol == NaN){ //if we weren't able to retrieve scene number, send it to 0 folder
+        fol = getSceneByName("0");
+      } else { //if we WERE able, just send it to its corresponding folder
+        fol = getSceneByName(fol.toString()); //get scene folder
+        if(fol == null){ //if the folder didn't exist, let's just create it
+          rootItem.createBin(parseInt(name));
+          fol = getSceneByName(parseInt(name));
+        }
+      }
+
+      /**************************************************/
+      /*          NOW LET'S START IMPORTINGG            */
+      /**************************************************/
+      //depending on what kind of asset this is, we'll do things differently
+      switch (kind) {
+        case "File": //in case of a single file, it's easy peasy
+          app.project.importFiles([drawFolder.fsName + "/" + name], false, fol, false);
+          break;
+        case "Assets Folder": //if it's a folder, we'll have to import every asset inside
+        case "Drawing Process": //but if it's a drawing process, it'll have to be a sequence
+
+          var assFolder = new Folder(drawFolder.fsName + "/" + name);
+          var assets = assFolder.getFiles(), paths = [];
+          for(var m=0; m<assets.length; m++){
+            paths.push(assets[m].fsName);
+          }
+          app.project.importFiles(paths, false, auxBin, kind == "Drawing Process");
+          if(kind == "Drawing Process"){ //if we were dealing with a drawing process, rename it
+            //move the thing to its corresponding folder and rename it
+            var refFile = auxBin.children[0];
+            refFile.name = name;
+            refFile.moveBin(fol);
+          } else { //if not, just move everything to its corresponding folder
+            auxBin.name = name;
+            auxBin.moveBin(fol);
+
+            rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
+            auxBin = getSceneByName("AUX");
+          }
+          break;
+        default:
+          return null;
       }
     }
-    res += "}\n\n";
-  }
+    auxBin.deleteBin();
+  } else return null;
 
-  alert(res);
 }
 
 /**
@@ -93,17 +162,9 @@ function analyzeDrawings(){
       //NOW, LET'S CHECK IF THE ELEMENT HAS ALREADY BEEN IMPORTED
       //---------------------------------------------------------
       var scene = parseInt(el.displayName).toString(); //get scene this file belongs to
-      var fold = null, found = false;
+      var fold = getSceneByName(scene); //try to find its corresponding folder
 
-      //try to find its corresponding folder
-      for(var m=0; m<projFolders.numItems; m++){
-        if(scene == projFolders[m].name){
-          found = true;
-          fold = projFolders[m];
-          break;
-        }
-      }
-      if(fold != null && found){ //if we found a folder, let's see if it's inside
+      if(fold != null){ //if we found a folder, let's see if the file's inside
         switch(kind){
           case "Assets Folder":
             var fileName = el.displayName;
