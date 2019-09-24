@@ -20,6 +20,27 @@
  }
 
 /**
+ * Decides which scene an element belongs in, creating a new one if necessary.
+ * @param {String} name - The name of the element.
+ * @return {ProjectItem} A ProjectItem bin of the scene in question.
+ *                       Returns 0 Folder if none other is available.
+ */
+ function decideScene(name){
+   var num = parseInt(name);
+   if(num == NaN){ //if we weren't able to retrieve scene number, send it to 0 folder
+     return getSceneByName("0");
+   } else { //if we WERE able, just send it to its corresponding folder
+     var fol = getSceneByName(num.toString()); //get scene folder
+     if(fol == null){ //if the folder didn't exist, let's just create it
+       app.project.rootItem.createBin(num.toString());
+       fol = getSceneByName(num.toString());
+     }
+     return fol;
+   }
+ }
+
+
+/**
  * Analyzes the Drawings folder corresponding to a
  * particular project folder and returns all the names
  * of the files inside.
@@ -30,68 +51,63 @@ function updateDrawings(whatToImport){
   var projRef = new File(app.project.path), drawFolder = projRef.parent; //get Sources folder
   var theresDraw = drawFolder.changePath("Drawings");
 
-
-
   if(theresDraw && drawFolder.exists){ //if we find the drawings folder
+    var drawings = [], folders = []; //create separate arrays for each type
+
     whatToImport = whatToImport.split(","); //start to parse this string back into something usable
+    for(var n=0; n<whatToImport.length; n++){
+      var info = whatToImport[n].split("?"); //get an element and parse its info
+      info = {name: info[0], kind: info[1]}; //...and store it in an object
+
+      switch(info.kind){ //put the information in its corresponding array
+        case "File":
+          drawings.push(drawFolder.fsName + "/" + info.name); //put directly the path, since we're gonna batch-import everything
+          break;
+        case "Drawing Process":
+        case "Assets Folder":
+          folders.push(info);
+          break;
+      }
+    }
+
     rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
     var auxBin = getSceneByName("AUX");
 
-    for(var n=0; n<whatToImport.length; n++){
-      var info = whatToImport[n].split("?"); //get an element and parse its info
-      var name = info[0], kind = info[1]; //...and store it in variables
+    //Let's start by batch-importing all the drawings
+    app.project.importFiles(drawings, false, auxBin, false);
 
-      /**************************************************/
-      /* FIRST LET'S FIGURE OUT WHERE THE ASSET WILL GO */
-      /**************************************************/
-      var fol = parseInt(name); //get scene number
-      if(fol == NaN){ //if we weren't able to retrieve scene number, send it to 0 folder
-        fol = getSceneByName("0");
-      } else { //if we WERE able, just send it to its corresponding folder
-        fol = getSceneByName(fol.toString()); //get scene folder
-        if(fol == null){ //if the folder didn't exist, let's just create it
-          rootItem.createBin(parseInt(name));
-          fol = getSceneByName(parseInt(name));
-        }
+    //Now let's move every new file to its respective bin
+    while(auxBin.children.numItems > 0){ //while there's stuff in the aux bin, we'll move it
+      var fol = decideScene(auxBin.children[0].name);
+      auxBin.children[0].moveBin(fol);
+    }
+
+    //NOW LET'S GET WITH THE DRAWING PROCESSES AND ASSETS
+    for(n=0; n<folders.length; n++){
+      var assFolder = new Folder(drawFolder.fsName + "/" + folders[n].name);
+      var assets = assFolder.getFiles(), paths = [], fol = decideScene(folders[n].name);
+      for(var m=0; m<assets.length; m++){
+        paths.push(assets[m].fsName);
       }
 
-      /**************************************************/
-      /*          NOW LET'S START IMPORTINGG            */
-      /**************************************************/
-      //depending on what kind of asset this is, we'll do things differently
-      switch (kind) {
-        case "File": //in case of a single file, it's easy peasy
-          app.project.importFiles([drawFolder.fsName + "/" + name], false, fol, false);
-          break;
-        case "Assets Folder": //if it's a folder, we'll have to import every asset inside
-        case "Drawing Process": //but if it's a drawing process, it'll have to be a sequence
+      app.project.importFiles(paths, false, auxBin, folders[n].kind == "Drawing Process");
+      if(folders[n].kind == "Drawing Process"){ //if we were dealing with a drawing process, rename it
+        //move the thing to its corresponding folder and rename it
+        var refFile = auxBin.children[0];
+        refFile.name = folders[n].name;
+        refFile.moveBin(fol);
+      } else { //if not, just move everything to its corresponding folder
+        auxBin.name = folders[n].name;
+        auxBin.moveBin(fol);
 
-          var assFolder = new Folder(drawFolder.fsName + "/" + name);
-          var assets = assFolder.getFiles(), paths = [];
-          for(var m=0; m<assets.length; m++){
-            paths.push(assets[m].fsName);
-          }
-          app.project.importFiles(paths, false, auxBin, kind == "Drawing Process");
-          if(kind == "Drawing Process"){ //if we were dealing with a drawing process, rename it
-            //move the thing to its corresponding folder and rename it
-            var refFile = auxBin.children[0];
-            refFile.name = name;
-            refFile.moveBin(fol);
-          } else { //if not, just move everything to its corresponding folder
-            auxBin.name = name;
-            auxBin.moveBin(fol);
-
-            rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
-            auxBin = getSceneByName("AUX");
-          }
-          break;
-        default:
-          return null;
+        rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
+        auxBin = getSceneByName("AUX");
       }
     }
-    auxBin.deleteBin();
-  } else return null;
 
+    auxBin.deleteBin(); //after everything, just delete the friggin aux bin
+    alert("Importing finished! Please click on Analyze Drawings again to refresh the list.");
+  } else return null;
 }
 
 /**

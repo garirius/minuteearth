@@ -23,7 +23,9 @@
       if(res == null){
         //if there's nothing to report, let's make sure the user knows
         filesDiv.innerHTML = "<p> Wasn't able to find the Drawings folder! Make sure it's on the same folder as the project file. </p>"
-      } else{
+      } else if (res == ""){
+        filesDiv.innerHTML = "<p> No new elements to add! </p>"
+      } else {
         //ok so first let's parse this string back into something usable
         res = res.split(",");
 
