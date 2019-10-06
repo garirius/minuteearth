@@ -6,7 +6,7 @@
  * Gets a bin of a particular type by name. If there is more than one file
  * matching the name and type, it returns an array. If it finds none, returns null.
  * @param {String} name - The name of the element to find
- * @return {ProjectItem| Null} A ProjectItem Bin with the name in question.
+ * @return {ProjectItem|Null} A ProjectItem Bin with the name in question.
  *                             If none has been found, it returns a null.
  */
  function getSceneByName(name){
