@@ -106,7 +106,7 @@ function updateDrawings(whatToImport){
     }
 
     auxBin.deleteBin(); //after everything, just delete the friggin aux bin
-    alert("Importing finished! Please click on Analyze Drawings again to refresh the list.");
+    return true;
   } else return null;
 }
 
@@ -164,7 +164,7 @@ function analyzeDrawings(){
           var sub = subfiles[m];
           //if we spot a file with "Drawings frame" in its name,
           //we can guess this is a Drawing Process folder
-          if(sub.displayName.indexOf("Drawings frame") >= 0){
+          if(sub.displayName.indexOf("frame") >= 0){
             kind = "Drawing Process";
             isDrawing = true;
             break;
