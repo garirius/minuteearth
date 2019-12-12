@@ -65,7 +65,13 @@
      whatToImport = whatToImport.join(",");
      //next we sent all this data to the JSX so it can do its importing magic
      //we turn our whatToImport object into a JSON string
-     csInterface.evalScript("updateDrawings(\"" + whatToImport + "\");", analDrawings()); //and re-analyze drawings after running the script
+     csInterface.evalScript("updateDrawings(\"" + whatToImport + "\");", function(){
+       var filesDiv = document.querySelector("#files");
+       filesDiv.innerHTML = "<p> Updating done! Click \"Analyze Drawings\" again if you want to refresh the list. </p>"
+       var analButton2 = document.createElement("button");
+       analButton2.innerHTML = "Analyze Folders";
+       filesDiv.appendChild(analButton2);
+     }); //and re-analyze drawings after running the script
    }
 
    analDrawings(); //analyze drawings as soon as the panel loads
