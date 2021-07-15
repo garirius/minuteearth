@@ -3,14 +3,16 @@
 // Has to be with the rest of the files in a valid CEP Adobe Extension folder
 
 /**
- * Gets a bin of a particular type by name. If there is more than one file
- * matching the name and type, it returns an array. If it finds none, returns null.
+ * Gets the bin of a video scene by name.
+ * The bin has to be in the root folder of the project.
+ * If there's more than one bin matching the name, it returns an array.
+ * If it finds none, returns null.
  * @param {String} name - The name of the element to find
  * @return {ProjectItem|Null} A ProjectItem Bin with the name in question.
  *                             If none has been found, it returns a null.
  */
  function getSceneByName(name){
-   //let's inspect where's children
+   //let's inspect our project's children
    var babies = app.project.rootItem.children;
    for(var n=0; n<babies.numItems; n++){
      //if we find a bin with the same name, return it and call it a day
@@ -23,7 +25,7 @@
  * Decides which scene an element belongs in, creating a new one if necessary.
  * @param {String} name - The name of the element.
  * @return {ProjectItem} A ProjectItem bin of the scene in question.
- *                       Returns 0 Folder if none other is available.
+ *                       Returns the '0' Folder if none other is available.
  */
  function decideScene(name){
    var num = parseInt(name);
@@ -41,20 +43,22 @@
 
 
 /**
- * Analyzes the Drawings folder corresponding to a
- * particular project folder and returns all the names
- * of the files inside.
+ * Imports all the selected drawings and drawing processes.
  * @param {String} whatToImport - string containing the name and kind of everything we're gonna import.
  */
 function updateDrawings(whatToImport){
   var rootItem = app.project.rootItem, projFolders = rootItem.children;
-  var projRef = new File(app.project.path), drawFolder = projRef.parent; //get Sources folder
+
+  //get Sources folder
+  var projRef = new File(app.project.path), drawFolder = projRef.parent;
   var theresDraw = drawFolder.changePath("Drawings");
 
   if(theresDraw && drawFolder.exists){ //if we find the drawings folder
     var drawings = [], folders = []; //create separate arrays for each type
 
-    whatToImport = whatToImport.split(","); //start to parse this string back into something usable
+    //start to parse this string back into something usable
+    whatToImport = whatToImport.split(",");
+
     for(var n=0; n<whatToImport.length; n++){
       var info = whatToImport[n].split("?"); //get an element and parse its info
       info = {name: info[0], kind: info[1]}; //...and store it in an object
@@ -70,29 +74,32 @@ function updateDrawings(whatToImport){
       }
     }
 
-    rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
+    rootItem.createBin("AUX"); //create an aux bin so we can easily find our stuff later and circumvent premiere's bullshit non-existent asset managing capabilities
     var auxBin = getSceneByName("AUX");
 
-    //Let's start by batch-importing all the drawings
+    //Let's start by batch-importing all the drawings (like, the ones tagged as 'File')
     app.project.importFiles(drawings, false, auxBin, false);
 
-    //Now let's move every new file to its respective bin
-    while(auxBin.children.numItems > 0){ //while there's stuff in the aux bin, we'll move it
+    //...and move every new file to its respective bin
+    while(auxBin.children.numItems > 0){
       var fol = decideScene(auxBin.children[0].name);
       auxBin.children[0].moveBin(fol);
     }
 
     //NOW LET'S GET WITH THE DRAWING PROCESSES AND ASSETS
     for(n=0; n<folders.length; n++){
+      //get the folder where the drawing process/asset collection is
       var assFolder = new Folder(drawFolder.fsName + "/" + folders[n].name);
+      //...and import its stuff
       var assets = assFolder.getFiles(), paths = [], fol = decideScene(folders[n].name);
       for(var m=0; m<assets.length; m++){
         paths.push(assets[m].fsName);
       }
 
+      //we will need to individually import each drawing process separately
       app.project.importFiles(paths, false, auxBin, folders[n].kind == "Drawing Process");
-      if(folders[n].kind == "Drawing Process"){ //if we were dealing with a drawing process, rename it
-        //move the thing to its corresponding folder and rename it
+      if(folders[n].kind == "Drawing Process"){
+        //if we were dealing with a drawing process, move it to its corresponding folder and rename it
         var refFile = auxBin.children[0];
         refFile.name = folders[n].name;
         refFile.moveBin(fol);
@@ -100,7 +107,7 @@ function updateDrawings(whatToImport){
         auxBin.name = folders[n].name;
         auxBin.moveBin(fol);
 
-        rootItem.createBin("AUX"); //create an aux bin to circumvent premiere's bullshit non-existent file managing capabilities
+        rootItem.createBin("AUX"); //recreate the aux bin we just moved
         auxBin = getSceneByName("AUX");
       }
     }

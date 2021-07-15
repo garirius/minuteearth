@@ -4,6 +4,7 @@
 
 (function (){
   'use strict';
+  //this is basically what we'll need to call in order to use premiere's scripting functionalities
   var csInterface = new CSInterface();
 
   // references to our html buttons and the functions they'll execute
@@ -58,20 +59,19 @@
      var checkedBoxes = document.querySelectorAll('input:checked');
      var whatToImport = [];
 
+     //get the necessary info from the rows with checked checkboxes
      for(var n=0; n<checkedBoxes.length; n++){
-       var row = checkedBoxes[n].parentNode.parentNode.children; //get the info of the rows
+       var row = checkedBoxes[n].parentNode.parentNode.children;
+       //turn the info into a single string because premiere is a mess and won't accept anything that isn't a string and apparently JSON.stringify() isn't a thing here
        whatToImport.push(row[1].textContent + "?" + row[2].textContent);
      }
      whatToImport = whatToImport.join(",");
-     //next we sent all this data to the JSX so it can do its importing magic
-     //we turn our whatToImport object into a JSON string
+
+     //send all this stringified data to the JSX so it can do its importing magic
      csInterface.evalScript("updateDrawings(\"" + whatToImport + "\");", function(){
        var filesDiv = document.querySelector("#files");
        filesDiv.innerHTML = "<p> Updating done! Click \"Analyze Drawings\" again if you want to refresh the list. </p>"
-       var analButton2 = document.createElement("button");
-       analButton2.innerHTML = "Analyze Folders";
-       filesDiv.appendChild(analButton2);
-     }); //and re-analyze drawings after running the script
+     }); //for some reason im not able to re-analize the drawings to have an updated list so this instruction will have to do
    }
 
    analDrawings(); //analyze drawings as soon as the panel loads
