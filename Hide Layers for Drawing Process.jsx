@@ -1,5 +1,5 @@
-// Hide Layers for Drawing Process.jsx v2
-// By Arcadi Garcia
+// Hide Layers for Drawing Process.jsx v3
+// Updated 2024-05-08 to support multiple selection
 // Creates a Hide All layer mask for all selected layers (or layers in the
 // selected folders and subfolders) and creates an "invisible" duplicate.
 
@@ -77,39 +77,40 @@ function getSelectedLayers() {
   return A;
 };
 
-//OK!! LET'S START!!
+/**********************************/
+/*     OK!! LET'S START!!         */
+/**********************************/
 var layeroos = getSelectedLayers(); //gets selected layers
+var doc = app.activeDocument;
 
-//before creating the invisible duplicate, let's find where to place it
-//we'll place it in the root folder, making sure it's above the topmost element
-var refLay = activeDocument.activeLayer; //gets topmost selected layer
-var daddy = refLay.parent;
-while(daddy.parent instanceof LayerSet){ //finds the outermost parent before the root folder
-  daddy = daddy.parent;
-}
+//find topmost layer to place stuff on top of
+var daddy = layeroos[0].parent;
+if(daddy instanceof Document) daddy = layeroos[0];
+else {
+  //finds the outermost parent before the root folder
+  while(daddy.parent instanceof LayerSet) daddy = daddy.parent;
+} 
 
-//create a Layer Set above daddy
-var dup = activeDocument.layerSets.add();
-dup.name = "duplicate";
-dup.move(daddy,ElementPlacement.PLACEBEFORE);
-//create a duplicate for every layer and place it inside "duplicate"
-var prev = null;
+//create mergeable folder above daddy
+doc.layerSets.add();
+above = doc.layers[0];
+above.move(daddy, ElementPlacement.PLACEBEFORE);
+above.name = 'invisible'; above.opacity = 20;
+
+//create dummy group to circumvent photoshop ass-backwards architecture
+above.layerSets.add()
+var dummy = above.layerSets[0];
+
+alert(dummy.name);
+//iterate through each selected layer
 for(var n=0; n<layeroos.length; n++){
-  var el = layeroos[n];
-  var dupel = el.duplicate();
-
-  //if we're duplicating a layer set, let's merge it
+  var el = layeroos[n];    
+  //create the invisible duplicate above daddy
+  var dupel = el.duplicate(dummy,ElementPlacement.PLACEBEFORE);
   if(dupel instanceof LayerSet) dupel = dupel.merge();
-
-  if(prev == null)
-    dupel.move(dup,ElementPlacement.INSIDE);
-  else
-    dupel.move(prev,ElementPlacement.PLACEAFTER);
-
-  prev = dupel;
 }
-dup = dup.merge();
-dup.opacity = 20;
+dummy.remove();
+above.merge();
 
 //loop again through layers, this time for hiding them!
 for(var n=0; n<layeroos.length; n++){
@@ -118,7 +119,7 @@ for(var n=0; n<layeroos.length; n++){
   if(lay instanceof LayerSet){//if this is a folder, loop through all its layers
     loopThrough(lay);
   } else {//if it's just a layer, hide it
-    if(!lay.isBackgroundLayer) addMask(lay);
+    if(!lay.isBackgroundLayer && !lay.grouped) addMask(lay);
   }
 }
 
